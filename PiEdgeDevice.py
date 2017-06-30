@@ -3,15 +3,35 @@ import sys
 import logging
 import time
 import argparse
+import json
+import EdgeCamera as ec
+
+messageCount = 0
+count = 0
 
 # Custom MQTT message callback
-def customCallback(client, userdata, message):
-	print("Received a new message: ")
-	print(message.payload)
-	print("from topic: ")
-	print(message.topic)
-	print("--------------\n\n")
+def topicCallback(client, userdata, message):
+        global messageCount
+        messageCount += 1
+        print("Received a new message: ")
+        print(message.payload)
+        print("from topic: ")
+        print(message.topic)
+        print("--------------\n\n")
 
+        request = json.loads(message.payload.decode())
+        requestType = request['type']
+        action = request['action']
+        arguments = request['arguments']
+        print("request=" + requestType + " action=" + action + "arguments=" + str(arguments) + "\n")
+        processCommand(requestType, action, arguments)
+        
+
+def processCommand(requestType, action, arguments):
+        if requestType == "camera":
+                if action == 'capture' and arguments['mode'] == 'image':
+                        edgeCamera.captureImage(arguments['tag'])
+        
 # Read in command-line parameters
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--endpoint", action="store", dest="host", default="a131ws0b6gtght.iot.us-west-2.amazonaws.com", help="Your AWS IoT custom endpoint")
@@ -21,6 +41,7 @@ parser.add_argument("-k", "--key", action="store", dest="privateKeyPath", defaul
 parser.add_argument("-w", "--websocket", action="store_true", dest="useWebsocket", default=False, help="Use MQTT over WebSocket")
 parser.add_argument("-id", "--clientId", action="store", dest="clientId", default="RaspberryPiPrimary", help="Targeted client id")
 parser.add_argument("-t", "--topic", action="store", dest="topic", default="demo/command", help="Targeted topic")
+parser.add_argument("-dp", "--dataPath", action="store", dest="dataPath", default="/home/pi/aws/camera/data", help="Path to raw data storage")
 
 args = parser.parse_args()
 host = args.host
@@ -30,6 +51,7 @@ privateKeyPath = args.privateKeyPath
 useWebsocket = args.useWebsocket
 clientId = args.clientId
 topic = args.topic
+dataPath = args.dataPath
 
 if args.useWebsocket and args.certificatePath and args.privateKeyPath:
 	parser.error("X.509 cert authentication and WebSocket are mutual exclusive. Please pick one.")
@@ -46,6 +68,9 @@ streamHandler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 streamHandler.setFormatter(formatter)
 logger.addHandler(streamHandler)
+
+# Configure Camera Device
+edgeCamera = ec.EdgeCamera(dataPath)
 
 # Init AWSIoTMQTTClient
 myAWSIoTMQTTClient = None
@@ -67,15 +92,14 @@ myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
 
 # Connect and subscribe to AWS IoT
 myAWSIoTMQTTClient.connect()
-myAWSIoTMQTTClient.subscribe(topic, 1, customCallback)
+myAWSIoTMQTTClient.subscribe(topic, 1, topicCallback)
 time.sleep(2)
 
 # Publish to the same topic in a loop forever
-loopCount = 0
 while True:
 	#myAWSIoTMQTTClient.publish(topic, "New Message " + str(loopCount), 1)
-        if (loopCount % 100 == 0):
-            print("Listening ... " + str(loopCount) + "\n")
+        if (count % 60 == 0):
+            print("Listening ... " + str(count) + " seconds; processed " + str(messageCount) + " messages\n")
 
-        loopCount += 1
+        count += 1
         time.sleep(1)
