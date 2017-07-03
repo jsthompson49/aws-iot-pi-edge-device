@@ -13,25 +13,27 @@ count = 0
 def topicCallback(client, userdata, message):
         global messageCount
         messageCount += 1
-        print("Received a new message: ")
-        print(message.payload)
-        print("from topic: ")
-        print(message.topic)
-        print("--------------\n\n")
+        print("From IoT Queue received(" + str(messageCount) + "): " + message.topic + " => " + str(message.payload))
 
         request = json.loads(message.payload.decode())
         requestType = request['type']
-        action = request['action']
-        arguments = request['arguments']
-        print("request=" + requestType + " action=" + action + "arguments=" + str(arguments) + "\n")
-        processCommand(requestType, action, arguments)
+        if 'action' in request:
+            action = request['action']
+            arguments = request['arguments']
+            print("request=" + requestType + " action=" + action + " arguments=" + str(arguments) + "\n")
+            processCommand(requestType, action, arguments)
         
 
 def processCommand(requestType, action, arguments):
         if requestType == "camera":
                 if action == 'capture' and arguments['mode'] == 'image':
-                        edgeCamera.captureImage(arguments['tag'])
+                        edgeCamera.captureImage('test')
+                        sendResponse('camera', 'image', { 'imageId': 123 })
         
+def sendResponse(responseType, reply, results):
+        response = {'type': responseType, 'reply': reply, 'results': results}
+        myAWSIoTMQTTClient.publish(topic, json.dumps(response), 1)
+
 # Read in command-line parameters
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--endpoint", action="store", dest="host", default="a131ws0b6gtght.iot.us-west-2.amazonaws.com", help="Your AWS IoT custom endpoint")
@@ -97,7 +99,6 @@ time.sleep(2)
 
 # Publish to the same topic in a loop forever
 while True:
-	#myAWSIoTMQTTClient.publish(topic, "New Message " + str(loopCount), 1)
         if (count % 60 == 0):
             print("Listening ... " + str(count) + " seconds; processed " + str(messageCount) + " messages\n")
 
