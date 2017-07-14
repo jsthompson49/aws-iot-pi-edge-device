@@ -1,15 +1,22 @@
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
-import sys
-import logging
-import time
 import argparse
-import json
 import EdgeCamera as ec
+import json
+import logging
+import sys
+import time
+import uuid
 
 messageCount = 0
 count = 0
 
-# Custom MQTT message callback
+def recognize(imageFileName):
+        global messageCount
+        if (messageCount % 3) == 0:
+                return 'joe'
+        else:
+                return ''
+
 def topicCallback(client, userdata, message):
         global messageCount
         messageCount += 1
@@ -19,16 +26,30 @@ def topicCallback(client, userdata, message):
         requestType = request['type']
         if 'action' in request:
             action = request['action']
-            arguments = request['arguments']
-            print("request=" + requestType + " action=" + action + " arguments=" + str(arguments) + "\n")
-            processCommand(requestType, action, arguments)
+            mode = request['mode']
+            if 'arguments' in request:
+                    arguments = request['arguments']
+            else:
+                    arguments = {}
+            print("request=" + requestType + " mode=" + mode + " action=" + action + " arguments=" + str(arguments) + "\n")
+            processCommand(requestType, mode, action, arguments)
         
 
-def processCommand(requestType, action, arguments):
+def processCommand(requestType, mode, action, arguments):
         if requestType == "camera":
-                if action == 'capture' and arguments['mode'] == 'image':
-                        edgeCamera.captureImage('test')
-                        sendResponse('camera', 'image', { 'imageId': 123 })
+                if mode == 'image':
+                        if action == 'capture':
+                                imageId = str(uuid.uuid4())
+                                edgeCamera.captureImage(imageId)
+                                tag = recognize(edgeCamera.getImageFileName(imageId))
+                                if tag == '':
+                                        sendResponse('camera', 'image', { 'imageId': imageId })
+                                else:
+                                        sendResponse('camera', 'image', { 'tag': tag })
+                        elif action == 'tag':
+                                edgeCamera.tagImage(arguments['imageId'], arguments['tag'])
+                        elif action == 'remove':
+                                edgeCamera.removeImage(arguments['imageId'])
         
 def sendResponse(responseType, reply, results):
         response = {'type': responseType, 'reply': reply, 'results': results}
