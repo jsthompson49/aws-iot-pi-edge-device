@@ -1,6 +1,7 @@
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 import argparse
 import EdgeCamera as ec
+import FaceRecognizer as fr
 import json
 import logging
 import sys
@@ -11,11 +12,7 @@ messageCount = 0
 count = 0
 
 def recognize(imageFileName):
-        global messageCount
-        if (messageCount % 3) == 0:
-                return 'joe'
-        else:
-                return ''
+        return faceRecognizer.predict(imageFileName)
 
 def topicCallback(client, userdata, message):
         global messageCount
@@ -94,6 +91,8 @@ logger.addHandler(streamHandler)
 
 # Configure Camera Device
 edgeCamera = ec.EdgeCamera(dataPath)
+faceRecognizer = fr.FaceRecognizer(dataPath)
+faceRecognizer.load()
 
 # Init AWSIoTMQTTClient
 myAWSIoTMQTTClient = None
