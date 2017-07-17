@@ -4,15 +4,13 @@ import EdgeCamera as ec
 import FaceRecognizer as fr
 import json
 import logging
+import os
 import sys
 import time
 import uuid
 
 messageCount = 0
 count = 0
-
-def recognize(imageFileName):
-        return faceRecognizer.predict(imageFileName)
 
 def topicCallback(client, userdata, message):
         global messageCount
@@ -38,11 +36,13 @@ def processCommand(requestType, mode, action, arguments):
                         if action == 'capture':
                                 imageId = str(uuid.uuid4())
                                 edgeCamera.captureImage(imageId)
-                                tag = recognize(edgeCamera.getImageFileName(imageId))
+                                imageFileName = edgeCamera.getImageFileName(imageId)
+                                tag = faceRecognizer.recognize(imageFileName)
                                 if tag == '':
                                         sendResponse('camera', 'image', { 'imageId': imageId })
                                 else:
                                         sendResponse('camera', 'image', { 'tag': tag })
+                                        os.remove(imageFileName)
                         elif action == 'tag':
                                 edgeCamera.tagImage(arguments['imageId'], arguments['tag'])
                         elif action == 'remove':

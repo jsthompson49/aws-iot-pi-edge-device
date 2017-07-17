@@ -17,11 +17,9 @@ class FaceRecognizer:
     def save(self):
         self.recognizer.save(self.path + self.MODEL_FILE_NAME)
 
-    def predict(self, imageFileName):
-        print('Predicting ' +  imageFileName + ' ...')
-        image = cv2.imread(imageFileName)
-        grayImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        faces = self.faceCascade.detectMultiScale(image)
+    def recognize(self, imageFileName):
+        print('Recognizing ' +  imageFileName + ' ...')
+        grayImage, faces = self.detect(imageFileName)
         if (len(faces) == 1):
             x, y, w, h = faces[0]
             print('Detected face at ({},{})'.format(x, y))
@@ -31,6 +29,18 @@ class FaceRecognizer:
         else:
             print(str(len(faces)) + " faces detected: " + str(faces))
             return ''
+
+    def drawDetected(self, imageFileName):
+        print('Detecting ' +  imageFileName + ' ...')
+        grayImage, faces = self.detect(imageFileName)
+        if (len(faces) == 0):
+            print('No faces detected')
+        else:
+            for (x, y, w, h) in faces:
+                print('Detected face at ({},{}) width={} height={}'.format(x, y, w, h))
+                cv2.rectangle(grayImage, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            root, ext = os.path.splitext(imageFileName)
+            cv2.imwrite(root + '_d' + ext, grayImage)
 
     def train(self):
         images = []
@@ -43,13 +53,11 @@ class FaceRecognizer:
                 imageFileNames = [os.path.join(imageDirPath, f) for f in os.listdir(imageDirPath) if f.endswith('.jpg')]
                 for imageFileName in imageFileNames:
                     print('Processing ' +  imageFileName)
-                    image = cv2.imread(imageFileName)
-                    grayImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                    faces = self.faceCascade.detectMultiScale(grayImage)
+                    image, faces = self.detect(imageFileName)
                     if (len(faces) == 1):
                         x, y, w, h = faces[0]
                         print('Adding image')
-                        images.append(grayImage[y: y + h, x: x + w])
+                        images.append(image[y: y + h, x: x + w])
                         ids.append(id)
                         added = True
                     elif (len(faces) == 0):
@@ -64,13 +72,28 @@ class FaceRecognizer:
         print('Training ... ')
         self.recognizer.train(images, np.array(ids))
         print('Training complete')
+
+    def detect(self, imageFileName):
+        image = cv2.imread(imageFileName)
+        grayImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        faces = self.faceCascade.detectMultiScale(image,
+            scaleFactor=1.3,
+            minNeighbors=5,
+            minSize=(100, 100))
+        return grayImage, faces
     
 if __name__ == "__main__":
     import sys
     faceRecognizer = FaceRecognizer('/home/pi/aws/camera/data')
     if len(sys.argv) > 1:
-        faceRecognizer.load()
-        faceRecognizer.predict('/home/pi/aws/camera/data/' + sys.argv[1])
+        path = '/home/pi/aws/camera/data/' + sys.argv[1]
+        if os.path.isdir(path):
+            imageFileNames = [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.jpg')]
+            for imageFileName in imageFileNames:
+                  faceRecognizer.drawDetected(imageFileName)
+        else:
+            faceRecognizer.load()
+            faceRecognizer.recognize(path)
     else:
         faceRecognizer.train()
         faceRecognizer.save()
