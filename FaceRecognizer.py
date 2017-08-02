@@ -4,7 +4,7 @@ import numpy as np
 import os
 
 class FaceRecognizer:
-    MODEL_FILE_NAME = "/FaceRecognizerModel.xml"
+    MODEL_FILE_NAME = "/model/FaceRecognizerModel.xml"
 
     def __init__(self, path):
         self.path = path

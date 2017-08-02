@@ -34,15 +34,19 @@ def processCommand(requestType, mode, action, arguments):
         if requestType == "camera":
                 if mode == 'image':
                         if action == 'capture':
-                                imageId = str(uuid.uuid4())
-                                edgeCamera.captureImage(imageId)
-                                imageFileName = edgeCamera.getImageFileName(imageId)
+                                imageId = ''
+                                imageFileName = edgeCamera.getLatestImageFileName()
+                                if imageFileName == '':
+                                        imageId = str(uuid.uuid4())
+                                        edgeCamera.captureImage(imageId)
+                                        imageFileName = edgeCamera.getImageFileName(imageId)
                                 tag = faceRecognizer.recognize(imageFileName)
                                 if tag == '':
+                                        if imageId == '':
+                                                imageId = edgeCamera.getImageId(imageFileName)
                                         sendResponse('camera', 'image', { 'imageId': imageId })
                                 else:
                                         sendResponse('camera', 'image', { 'tag': tag })
-                                        os.remove(imageFileName)
                         elif action == 'tag':
                                 edgeCamera.tagImage(arguments['imageId'], arguments['tag'])
                         elif action == 'remove':
@@ -61,7 +65,7 @@ parser.add_argument("-k", "--key", action="store", dest="privateKeyPath", defaul
 parser.add_argument("-w", "--websocket", action="store_true", dest="useWebsocket", default=False, help="Use MQTT over WebSocket")
 parser.add_argument("-id", "--clientId", action="store", dest="clientId", default="RaspberryPiPrimary", help="Targeted client id")
 parser.add_argument("-t", "--topic", action="store", dest="topic", default="demo/command", help="Targeted topic")
-parser.add_argument("-dp", "--dataPath", action="store", dest="dataPath", default="/home/pi/aws/camera/data", help="Path to raw data storage")
+parser.add_argument("-dp", "--dataPath", action="store", dest="dataPath", default="/home/pi/camera/data", help="Path to raw data storage")
 
 args = parser.parse_args()
 host = args.host
